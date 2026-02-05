@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Chi Đoàn 12A4 - Order Online</title>
+    <style>
+        /* GIỮ NGUYÊN CSS CŨ CỦA BẠN VÀ THÊM CSS CHO MODAL */
+        :root { --primary-color: #d32f2f; --accent-color: #fbc02d; --bg-color: #fff8e1; --text-color: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); margin: 0; color: var(--text-color); padding-bottom: 80px; }
+        header { background-color: var(--primary-color); color: white; text-align: center; padding: 20px; border-bottom: 5px solid var(--accent-color); }
+        .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; }
+        .product-card { background: white; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); overflow: hidden; text-align: center; padding-bottom: 15px; }
+        .product-img { height: 120px; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+        .product-name { font-weight: bold; margin: 10px 0; }
+        .product-price { color: var(--primary-color); font-weight: bold; }
+        .add-btn { background: var(--primary-color); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; margin-top: 10px; }
+        
+        /* Cart Bar */
+        .cart-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; width: 90%; max-width: 600px; padding: 15px; border-radius: 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; }
+        .checkout-btn { background: var(--accent-color); color: #d32f2f; border: none; padding: 10px 20px; border-radius: 30px; font-weight: bold; cursor: pointer; margin-right: 5px; }
+
+        /* MODAL & FORM STYLES (MỚI) */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; text-align: left; }
+        .modal h2 { text-align: center; color: var(--primary-color); margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .qr-display { text-align: center; margin-top: 20px; display: none; }
+        .qr-display img { max-width: 100%; border: 2px solid var(--primary-color); border-radius: 10px; }
+        .close-btn { background: #ccc; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; margin-top: 10px; }
+        .confirm-btn { background: var(--primary-color); color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-size: 1.1rem; font-weight: bold; }
+        .loading { display: none; text-align: center; color: var(--primary-color); font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>MENU 12A4</h1>
+    <p>Đặt món Online - Giao hàng tận lớp</p>
+</header>
+
+<div class="container">
+    <div class="menu-grid" id="menu-container"></div>
+</div>
+
+<div class="cart-bar" id="cart-bar" style="display: none;">
+    <div class="cart-info" style="margin-left: 15px;">
+        <span id="cart-count">0</span> món | <span id="cart-total">0</span>đ
+    </div>
+    <button class="checkout-btn" onclick="openCheckoutModal()">Thanh Toán</button>
+</div>
+
+<div class="modal" id="checkout-modal">
+    <div class="modal-content">
+        <div id="order-form-step">
+            <h2>Thông tin giao hàng</h2>
+            <div class="form-group">
+                <label>Tên của bạn:</label>
+                <input type="text" id="cust-name" placeholder="Ví dụ: Nam (Bàn 3)">
+            </div>
+            <div class="form-group">
+                <label>Số điện thoại (để gọi khi giao):</label>
+                <input type="tel" id="cust-phone" placeholder="09xxxxxxx">
+            </div>
+            <div class="form-group">
+                <label>Địa chỉ nhận (Lớp/Khu vực):</label>
+                <input type="text" id="cust-address" placeholder="Lớp 11A2, Dãy B...">
+            </div>
+            <div id="order-summary" style="background: #f9f9f9; padding: 10px; margin-bottom: 15px; border-radius: 5px; font-size: 0.9rem;"></div>
+            
+            <div class="loading" id="loading-msg">Đang gửi đơn hàng...</div>
+            <button class="confirm-btn" onclick="processOrder()">Xác nhận & Lấy mã QR</button>
+            <button class="close-btn" onclick="closeModal()">Đóng</button>
+        </div>
+
+        <div id="qr-step" class="qr-display">
+            <h2>Quét mã để thanh toán</h2>
+            <p style="color: red; font-weight: bold;">Chuyển đúng số tiền bên dưới!</p>
+            <img id="qr-image" src="" alt="QR Code">
+            <p>Nội dung CK: <b id="qr-content"></b></p>
+            <p>Sau khi chuyển khoản, vui lòng chờ người bán xác nhận.</p>
+            <button class="close-btn" onclick="finishOrder()">Hoàn tất</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CẤU HÌNH CỦA BẠN (SỬA Ở ĐÂY) ---
+    const BANK_ID = "VCB"; // Mã ngân hàng (MB, VCB, TPB, v.v...) xem tại vietqr.io
+    const ACCOUNT_NO = "1060181382"; // Số tài khoản của bạn
+    const ACCOUNT_NAME = "Trần Hồng Ân"; // Tên chủ tài khoản
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxinV8wMhJpP-zFHa_aaluZ3p3kTBweQ2CQO89_kmc-3d1bTe9TXePV0Vy5iVaLlkE6/exec"; 
+    // ------------------------------------
+
+    const products = [
+        { id: 1, name: "Gà Popcorn", price: 17000, icon: "🍗" },
+        { id: 2, name: "Nem chua rán", price: 6000, icon: "🥓" },
+        { id: 3, name: "Cá viên chiên", price: 5000, icon: "🍢" },
+        { id: 4, name: "Xoài lắc", price: 7000, icon: "🥭" },
+        { id: 5, name: "Phở cuốn", price: 5000, icon: "🌯" },
+        { id: 6, name: "Trà tắc", price: 10000, icon: "🍹" }
+    ];
+
+    let cart = [];
+
+    function renderProducts() {
+        document.getElementById('menu-container').innerHTML = products.map(p => `
+            <div class="product-card">
+                <div class="product-img">${p.icon}</div>
+                <div class="product-name">${p.name}</div>
+                <div class="product-price">${p.price.toLocaleString('vi-VN')} đ</div>
+                <button class="add-btn" onclick="addToCart(${p.id})">Thêm +</button>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(id) {
+        cart.push(products.find(p => p.id === id));
+        updateCartDisplay();
+    }
+
+    function updateCartDisplay() {
+        const bar = document.getElementById('cart-bar');
+        if (cart.length > 0) {
+            bar.style.display = 'flex';
+            document.getElementById('cart-count').innerText = cart.length;
+            const total = cart.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById('cart-total').innerText = total.toLocaleString('vi-VN');
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    // Modal Logic
+    function openCheckoutModal() {
+        if (cart.length === 0) return;
+        document.getElementById('checkout-modal').style.display = 'flex';
+        document.getElementById('order-form-step').style.display = 'block';
+        document.getElementById('qr-step').style.display = 'none';
+        
+        // Hiển thị tóm tắt đơn
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        let html = "<b>Đơn hàng:</b><br>";
+        // Gộp các món giống nhau
+        const counts = {};
+        cart.forEach(x => { counts[x.name] = (counts[x.name] || 0) + 1; });
+        for (const [name, count] of Object.entries(counts)) {
+            html += `- ${name} x${count}<br>`;
+        }
+        html += `<br><b>Tổng cộng: ${total.toLocaleString('vi-VN')} đ</b>`;
+        document.getElementById('order-summary').innerHTML = html;
+    }
+
+    function closeModal() {
+        document.getElementById('checkout-modal').style.display = 'none';
+    }
+
+    function processOrder() {
+        const name = document.getElementById('cust-name').value;
+        const phone = document.getElementById('cust-phone').value;
+        const address = document.getElementById('cust-address').value;
+
+        if (!name || !phone || !address) {
+            alert("Vui lòng điền đầy đủ thông tin!");
+            return;
+        }
+
+        document.getElementById('loading-msg').style.display = 'block';
+        
+        // Tính toán dữ liệu
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        // Nội dung CK ngắn gọn: Tên + SĐT (bỏ số 0 đầu)
+        const contentCK = `12A4 - ${phone.replace(/^0/, '')}`; 
+        const orderDetails = cart.map(i => i.name).join(", ");
+
+        // Tạo link VietQR động
+        // Cấu trúc: https://img.vietqr.io/image/[BANK]-[ACC]-[TEMPLATE].png?amount=[TIEN]&addInfo=[NOIDUNG]
+        const qrURL = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.jpg?amount=${total}&addInfo=${encodeURIComponent(contentCK)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+
+        // Gửi dữ liệu về Google Sheet
+        const data = {
+            name: name,
+            phone: phone,
+            address: address,
+            order_details: orderDetails,
+            total: total
+        };
+
+        // Dùng fetch để gửi (mode no-cors để tránh lỗi chặn, mặc dù không nhận được response nhưng vẫn gửi được)
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(() => {
+            // Sau khi gửi xong (hoặc giả lập xong)
+            document.getElementById('loading-msg').style.display = 'none';
+            document.getElementById('order-form-step').style.display = 'none';
+            document.getElementById('qr-step').style.display = 'block';
+            
+            // Hiển thị QR
+            document.getElementById('qr-image').src = qrURL;
+            document.getElementById('qr-content').innerText = contentCK;
+        }).catch(err => {
+            alert("Lỗi gửi đơn. Vui lòng thử lại hoặc chụp màn hình gửi người bán.");
+            console.error(err);
+        });
+    }
+
+    function finishOrder() {
+        cart = [];
+        updateCartDisplay();
+        closeModal();
+        alert("Đơn hàng đã được ghi lại! Chúng mình sẽ giao sớm nhất.");
+    }
+
+    renderProducts();
+</script>
+
+</body>
+</html>
